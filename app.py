@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for, s
 import random
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key'  # Required for session management
+
 
 driver_names = ["Akash", "Bianca", "Carlos", "Deepa", "Elijah", "Fatima", "Gustavo", "Haruki", "Isabella", "Jasper",
  "Kavya", "Liam", "Mei", "Noah", "Olga", "Pablo", "Qiara", "Ravi", "Sofia", "Tariq"]
