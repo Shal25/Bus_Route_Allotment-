@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Route Visualization - AI Bus Scheduler</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .main-container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: #2c3e50;
+        }
+        #container {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        #canvas-container {
+            flex: 2;
+            position: relative;
+        }
+        #canvas {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            background: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.05);
+        }
+        #steps {
+            flex: 1;
+            height: 600px;
+            overflow-y: auto;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+        .step {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: white;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .valid {
+            color: #28a745;
+        }
+        .invalid {
+            color: #dc3545;
+        }
+        .step-header {
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: #2c3e50;
+        }
+        .step-detail {
+            margin-bottom: 0.25rem;
+            font-size: 0.9rem;
+        }
+        .navigation {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 2rem;
+        }
+        .btn-primary {
+            background-color: #3498db;
+            border-color: #3498db;
+        }
+        .btn-primary:hover {
+            background-color: #2980b9;
+            border-color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container main-container">
+        <div class="header">
+            <h1><i class="fas fa-route"></i> Route Visualization</h1>
+            <p class="lead">Interactive visualization of bus routes and backtracking steps</p>
+        </div>
+
+        <div id="container">
+            <div id="canvas-container">
+                <canvas id="canvas" width="600" height="600"></canvas>
+            </div>
+            <div id="steps">
+                <h3 class="mb-3">Backtracking Steps</h3>
+                {% for step in steps %}
+                    <div class="step">
+                        <div class="step-header">{{ step.step }}</div>
+                        <div class="step-detail">
+                            <strong>Bus Load:</strong> {{ step.load }}
+                        </div>
+                        <div class="step-detail">
+                            <strong>Demand:</strong> {{ step.demand }}
+                        </div>
+                        <div class="step-detail">
+                            <strong>Valid:</strong> 
+                            <span class="{{ 'valid' if step.valid else 'invalid' }}">
+                                {{ '✓ Valid' if step.valid else '✗ Invalid' }}
+                            </span>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="navigation">
+            
+            <a href="{{ url_for('index') }}" class="btn btn-primary">
+                <i class="fas fa-home"></i> Back to Home
+            </a>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const visualizationData = JSON.parse('{{ visualization_data | tojson | safe }}');
+        const demandValues = JSON.parse('{{ demand_values | tojson | safe }}');
+
+        // Colors for different buses
+        const colors = [
+            '#3498db', '#e74c3c', '#2ecc71', '#f1c40f', 
+            '#9b59b6', '#1abc9c', '#e67e22', '#34495e'
+        ];
+
+        // Draw stops as points in a circular layout
+        const numStops = demandValues.length;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const radius = 200;
+        const stops = [];
+
+        // Calculate stop positions
+        for (let i = 0; i < numStops; i++) {
+            const angle = (i / numStops) * 2 * Math.PI;
+            const x = centerX + radius * Math.cos(angle);
+            const y = centerY + radius * Math.sin(angle);
+            stops.push({ x, y });
+        }
+
+        // Draw routes
+        visualizationData.forEach((bus, index) => {
+            ctx.beginPath();
+            ctx.strokeStyle = colors[index % colors.length];
+            ctx.lineWidth = 3;
+            ctx.setLineDash([5, 5]);
+            const route = bus.stops;
+            
+            // Draw the route
+            for (let i = 0; i < route.length; i++) {
+                const stopIdx = route[i];
+                const { x, y } = stops[stopIdx];
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Draw bus label at the first stop
+            if (route.length > 0) {
+                const firstStop = stops[route[0]];
+                ctx.fillStyle = colors[index % colors.length];
+                ctx.font = 'bold 16px Arial';
+                ctx.fillText(bus.bus, firstStop.x + 10, firstStop.y - 10);
+            }
+        });
+
+        // Draw stops as circles with demand labels
+        stops.forEach((stop, index) => {
+            // Draw stop circle
+            ctx.beginPath();
+            ctx.arc(stop.x, stop.y, 8, 0, 2 * Math.PI);
+            ctx.fillStyle = '#2c3e50';
+            ctx.fill();
+            
+            // Draw stop number and demand
+            ctx.font = 'bold 12px Arial';
+            ctx.fillStyle = '#2c3e50';
+            ctx.textAlign = 'center';
+            ctx.fillText(`Stop ${index}`, stop.x, stop.y - 15);
+            ctx.fillText(`(${demandValues[index]})`, stop.x, stop.y + 20);
+        });
+    </script>
+</body>
+</html>
